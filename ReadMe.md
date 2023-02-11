@@ -14,3 +14,24 @@ git init
 
 ## 创建readme文件
 
+# 搭建项目
+## 搭建koa框架
+```powershell
+npm install koa
+```
+## 编写基础的app
+```javascript
+const Koa = require('koa')
+const app = new Koa()
+app.use((ctx, next) => {
+    ctx.body = 'hello api'
+})
+app.listen(4000, () => {
+    console.log('服务已经正常启动在http://localhost:4000')
+})
+```
+## 测试
+使用node命令运行
+```powershell
+node main.js
+```
