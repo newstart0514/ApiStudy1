@@ -77,3 +77,91 @@ app.listen(APP_PORT, () => {
     console.log(`服务已经正常启动在：http://localhost:${APP_PORT}`)
 })
 ```
+
+# 添加路由
+路由：根据不同的URL，调用不同的URL，调用对应的处理函数
+## 安装koa-router
+```powershell
+npm install koa-router
+```
+### 步骤
+1. 导入包
+2. 实例化对象
+3. 编写路由
+4. 注册中间件
+
+## 编写路由
+创建src/router目录，编写user.route.js
+```javascript
+const Router = require('koa-router')
+const router = new Router({
+    prefix: '/users'
+})
+// GET /users/
+router.get('/', (ctx, next) => {
+    ctx.body = 'hello users'
+})
+module.exports = router
+```
+
+## 改写main.js
+```javascript
+const Koa = require('koa')
+const { APP_PORT } = require('./config/config.default')
+const userRouter = require('./router/uesr.route')
+const app = new Koa()
+app.use(userRouter.routes())
+app.listen(APP_PORT, () => {
+    console.log(`服务已经正常启动在：http://localhost:${APP_PORT}`)
+})
+```
+
+# 目录结构的优化
+## 将HTTP服务和app业务拆分
+创建src/app/index.js
+```javascript
+const Koa = require('koa')
+const userRouter = require('../router/uesr.route')
+const app = new Koa()
+app.use(userRouter.routes())
+module.exports = app
+```
+改写main.js
+```javascript
+const { APP_PORT } = require('./config/config.default')
+const app = require('./app')
+app.listen(APP_PORT, () => {
+    console.log(`服务已经正常启动在：http://localhost:${APP_PORT}`)
+})
+```
+
+## 将路由以及控制器拆分
+路由：解析URL，分布给控制器对应的方法
+控制器：处理不同的业务
+改写user.route.js文件
+```javascript
+const Router = require('koa-router')
+const { register, login } = require('../controller/user.controller')
+const router = new Router({
+    prefix: '/users'
+})
+// 注册接口
+router.post('/register', register)
+// 登录接口
+router.post('/login', login)
+module.exports = router
+```
+创建controller/user.controller.js
+```javascript
+const Router = require('koa-router')
+const { register, login } = require('../controller/user.controller')
+const router = new Router({
+    prefix: '/users'
+})
+// 注册接口
+router.post('/register', register)
+// 登录接口
+router.post('/login', login)
+module.exports = router
+```
+
