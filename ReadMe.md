@@ -35,3 +35,45 @@ app.listen(4000, () => {
 ```powershell
 node main.js
 ```
+
+# 项目的基本优化
+## 自动重启服务
+安装nodemon工具
+```powershell
+npm install nodemon
+```
+编写package.json脚本
+```json
+"scripts": {
+    "dev": "nodemon ./src/main.js"
+},
+```
+执行npm run dev启动服务
+
+## 读取配置文件
+安装dotenv，读取根目录的.env文件，将配置写process.env中
+```powershell
+npm install dotenv
+```
+创建.env文件
+```env
+APP_PROT=8000
+```
+创建src/config/config.defalut.js
+```javascript
+const dotenv = require('dotenv')
+dotenv.config()
+module.exports = process.env
+```
+改写main.js
+```javascript
+const Koa = require('koa')
+const { APP_PORT } = require('./config/config.default')
+const app = new Koa()
+app.use((ctx, next) => {
+    ctx.body = 'hello api'
+})
+app.listen(APP_PORT, () => {
+    console.log(`服务已经正常启动在：http://localhost:${APP_PORT}`)
+})
+```
