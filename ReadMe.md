@@ -40,7 +40,7 @@ node main.js
 ## 自动重启服务
 安装nodemon工具
 ```powershell
-npm install nodemon
+npm install nodemon -D
 ```
 编写package.json脚本
 ```json
@@ -165,3 +165,53 @@ router.post('/login', login)
 module.exports = router
 ```
 
+# 解析body
+## 安装koa-body
+```powershell
+npm install koa-body
+```
+## 注册中间件
+改写app/index.js
+```javascript
+const Koa = require('koa')
+const { koaBody } = require('koa-body')
+const userRouter = require('../router/uesr.route')
+const app = new Koa()
+app.use(koaBody())
+app.use(userRouter.routes())
+module.exports = app
+```
+
+## 解析数据请求
+改写user.controller.js
+```javascript
+const { createUser } = require("../service/user.service")
+class UserController {
+    async register(ctx, next) {
+        // 获取数据
+        // console.log(ctx.request.body)
+        const {user_name, password} = ctx.request.body
+        // 操作数据库
+        const res = await createUser(user_name, password)
+        console.log(res)
+        ctx.body = '用户注册成功'
+    }
+    async login(ctx, next) {
+        ctx.body = '登录成功'
+    }
+}
+module.exports = new UserController()
+```
+
+## 拆分service层
+service层主要是做数据库处理
+创建src/service/user.service.js
+```javascript
+class UserService {
+    async createUser(user_name, password) {
+        // 写入数据库
+        return '写入数据库成功'
+    }
+}
+module.exports = new UserService()
+```
