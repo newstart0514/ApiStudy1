@@ -215,3 +215,283 @@ class UserService {
 }
 module.exports = new UserService()
 ```
+
+# 数据库操作
+Sequelize ORM数据库工具
+ORM:对象关系映射
+- 数据表映射（对应）一个类
+- 数据表中的数据行（记录）对应一个对象
+- 数据表字段对应对象属性
+- 数据表的操作对应对象的方法
+
+## 安装sequelize
+```powershell
+npm i mysql2 sequelize
+```
+
+## 连接数据库
+src/db/seq.js
+```javascript
+const {MYSQL_HOST,MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB} = require('../config/config.default')
+const { Sequelize } = require('sequelize')
+
+const seq = new Sequelize(MYSQL_DB,MYSQL_USER,MYSQL_PASSWORD, {
+    host: MYSQL_HOST,
+    dialect: 'mysql'
+});
+
+// 验证数据库连接
+// seq.authenticate().then(() => {
+//     console.log('数据库连接成功！')
+// }).catch((err) => {
+//     console.log('数据库连接失败',err)
+// })
+
+module.exports = seq;
+```
+
+## 编写配置文件
+```env
+...
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=123456
+MYSQL_DB=youliShopping
+```
+
+# 创建User模型
+## 拆分Model层
+sequelize主要通过model对应数据表
+创建src/model/user.model.js
+```javascript
+const { DataTypes } = require('sequelize')
+const seq = require('../db/seq')
+
+// 创建模型
+const User = seq.define('yl_User', {
+    // id会被自动创建，管理
+    user_name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        comment: '用户名，唯一'
+    },
+    password: {
+        type: DataTypes.CHAR(64),
+        allowNull: false,
+        comment: '密码'
+    },
+    is_admin: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: 0,
+        comment: '是否为管理员，0表示不是管理员，1表示是管理员'
+    }
+}, {
+    // 是否需要时间戳记录
+    timestamps: true
+})
+
+// 强制同步表到数据库（创建数据表）
+// User.sync({force: true})
+
+module.exports = User
+```
+
+# 添加用户入库
+修改user.service.js文件：
+```javascript
+const User = require('../model/use.model')
+
+class UserService {
+    async createUser(user_name, password) {
+        // 插入数据
+        // User.create({
+        //     // 表的字段
+        //     user_name: user_name,
+        //     password: password,
+        // })
+        // await表达式：promise对象的值
+        const res = await User.create({
+            user_name,
+            password
+        })
+        // console.log(res)
+        // 只需要res里面的dataValues结果
+        return res.dataValues
+    }
+}
+
+module.exports = new UserService()
+```
+修改user.controller.js文件
+```javascript
+const { createUser } = require("../service/user.service")
+
+class UserController {
+    async register(ctx, next) {
+        // 获取数据
+        // console.log(ctx.request.body)
+        const {user_name, password} = ctx.request.body
+        // 操作数据库
+        const res = await createUser(user_name, password)
+        console.log(res)
+        ctx.body = {
+            code: 0,
+            message: '用户注册成功',
+            result: {
+                id: res.id,
+                user_name: res.user_name,
+            }
+        }
+    }
+
+    async login(ctx, next) {
+        ctx.body = '登录成功'
+    }
+}
+
+module.exports = new UserController()
+```
+
+# 错误处理
+修改user.service.js文件，增加查询函数
+```javascript
+const User = require('../model/use.model')
+
+class UserService {
+    async createUser(user_name, password) {
+        // 插入数据
+        // await表达式：promise对象的值
+        const res = await User.create({
+            user_name,
+            password
+        })
+        // console.log(res)
+        // 只需要res里面的dataValues结果
+        return res.dataValues
+    }
+
+    async getUserInfo({id, user_name, password, is_admin}) {
+        const whereOpt = {}
+        id && Object.assign(whereOpt, {id})
+        user_name && Object.assign(whereOpt, {user_name})
+        password && Object.assign(whereOpt, {password})
+        is_admin && Object.assign(whereOpt, {is_admin})
+        // 查询字段
+        const res = await User.findOne({
+            attributes: ['id', 'user_name', 'password', 'is_admin'],
+            where: whereOpt
+        })
+        return res ? res.dataValues : null
+    }
+}
+
+module.exports = new UserService()
+```
+修改user.controller.js文件，添加合理性以及合法性判断
+```javascript
+const { createUser, getUserInfo } = require("../service/user.service")
+
+class UserController {
+    async register(ctx, next) {
+        // 获取数据
+        // console.log(ctx.request.body)
+        const {user_name, password} = ctx.request.body
+        // 判断合法性
+        if(!user_name || !password) {
+            console.error('用户或密码为空',ctx.request.body)
+            ctx.status = 400
+            ctx.body = {
+                code: '10001',
+                message: '用户名或者密码为空',
+                result: ''
+            }
+            return
+        }
+        // 判断合理性
+        if (await getUserInfo(user_name)) {
+            ctx.status = 409
+            ctx.body = {
+                code: '10002',
+                message: '用户已经存在',
+                result: ''
+            }
+            return
+        }
+        // 操作数据库
+        const res = await createUser(user_name, password)
+        // console.log(res)
+        // 返回结果
+        ctx.body = {
+            code: 0,
+            message: '用户注册成功',
+            result: {
+                id: res.id,
+                user_name: res.user_name,
+            }
+        }
+    }
+
+    async login(ctx, next) {
+        ctx.body = '登录成功'
+    }
+}
+
+module.exports = new UserController()
+```
+
+# 拆分中间件
+修改user.middleware.js文件：
+```javascript
+const {getUserInfo} = require("../service/user.service");
+const {userFormateError, userExistError} = require("../constant/err.type");
+const userValidator = async (ctx, next) => {
+    const {user_name , password} = ctx.request.body
+    // 判断合法性
+    if(!user_name || !password) {
+        console.error('用户或密码为空',ctx.request.body)
+        ctx.status = 400
+        ctx.app.emit('error', userFormateError, ctx)
+        return
+    }
+    await next()
+}
+
+const verifyUser = async (ctx, next) => {
+    const {user_name} = ctx.request.body
+    // 判断合理性
+    if (await getUserInfo({user_name})) {
+        ctx.status = 409
+        ctx.app.emit('error', userExistError, ctx)
+        return
+    }
+    await next()
+}
+
+module.exports = {
+    userValidator,
+    verifyUser
+}
+```
+在constant文件夹下创建err.type.js，内容如下：
+```javascript
+module.exports = {
+    userFormateError: {
+        code: '10001',
+        message: '用户名或密码为空',
+        result: ''
+    },
+    userExistError: {
+        code: '10002',
+        message: '用户已经存在',
+        result: ''
+    },
+    userRegisterError: {
+        code: '10003',
+        message: '用户注册错误',
+        result: ''
+    }
+}
+```
