@@ -446,13 +446,12 @@ module.exports = new UserController()
 修改user.middleware.js文件：
 ```javascript
 const {getUserInfo} = require("../service/user.service");
-const {userFormateError, userExistError} = require("../constant/err.type");
+const {userFormateError, userExistError, userRegisterError} = require("../constant/err.type");
 const userValidator = async (ctx, next) => {
     const {user_name , password} = ctx.request.body
     // 判断合法性
     if(!user_name || !password) {
         console.error('用户或密码为空',ctx.request.body)
-        ctx.status = 400
         ctx.app.emit('error', userFormateError, ctx)
         return
     }
@@ -462,9 +461,20 @@ const userValidator = async (ctx, next) => {
 const verifyUser = async (ctx, next) => {
     const {user_name} = ctx.request.body
     // 判断合理性
-    if (await getUserInfo({user_name})) {
-        ctx.status = 409
-        ctx.app.emit('error', userExistError, ctx)
+    // if (await getUserInfo({user_name})) {
+    //     ctx.app.emit('error', userExistError, ctx)
+    //     return
+    // }
+    try {
+        const res = await getUserInfo({user_name})
+        if (res) {
+            console.error('用户名已经存在', {user_name})
+            ctx.app.emit('error', userExistError, ctx)
+            return
+        }
+    }catch (err) {
+        console.error('获取用户信息错误', err)
+        ctx.app.emit('error', userRegisterError, ctx)
         return
     }
     await next()
@@ -494,4 +504,101 @@ module.exports = {
         result: ''
     }
 }
+```
+修改user.controller.js捕获异步函数调用的错误：
+```javascript
+const { createUser } = require("../service/user.service")
+const {userRegisterError} = require("../constant/err.type");
+
+class UserController {
+    async register(ctx, next) {
+        // 获取数据
+        // console.log(ctx.request.body)
+        const {user_name, password} = ctx.request.body
+        // 操作数据库
+        try {
+            const res = await createUser(user_name, password)
+            // console.log(res)
+            // 返回结果
+            ctx.body = {
+                code: 0,
+                message: '用户注册成功',
+                result: {
+                    id: res.id,
+                    user_name: res.user_name,
+                }
+            }
+        } catch (err) {
+            console.error(err)
+            ctx.app.emit('error', userRegisterError, ctx)
+        }
+    }
+
+    async login(ctx, next) {
+        ctx.body = '登录成功'
+    }
+}
+
+module.exports = new UserController()
+```
+修改user.route.js将检验合理性以及合法性设置为前置条件：
+```javascript
+const { createUser } = require("../service/user.service")
+const {userRegisterError} = require("../constant/err.type");
+
+class UserController {
+    async register(ctx, next) {
+        // 获取数据
+        // console.log(ctx.request.body)
+        const {user_name, password} = ctx.request.body
+        // 操作数据库
+        try {
+            const res = await createUser(user_name, password)
+            // console.log(res)
+            // 返回结果
+            ctx.body = {
+                code: 0,
+                message: '用户注册成功',
+                result: {
+                    id: res.id,
+                    user_name: res.user_name,
+                }
+            }
+        } catch (err) {
+            console.error(err)
+            ctx.app.emit('error', userRegisterError, ctx)
+        }
+    }
+
+    async login(ctx, next) {
+        ctx.body = '登录成功'
+    }
+}
+
+module.exports = new UserController()
+```
+
+# 加密
+在将密码保存在数据库之前，我们需要对密码进行加密
+## 安装bcryptjs
+```powershell
+npm i bcryptjs
+```
+## 使用bcryptjs
+在user.middleware.js文件下添加然后对外暴露：
+```javascript
+const crpytPassword = async (ctx, next) => {
+    const { password } = ctx.request.body
+    // 生成盐
+    const salt = bcrypt.genSaltSync(10)
+    // 根据盐生成哈希值
+    const hash = bcrypt.hashSync(password, salt)
+    ctx.request.body.password = hash
+    await next()
+}
+```
+修改user.route.js文件下注册接口的语句：
+```javascript
+// 注册接口
+router.post('/register', userValidator, verifyUser , crpytPassword, register)
 ```
