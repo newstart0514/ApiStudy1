@@ -602,3 +602,184 @@ const crpytPassword = async (ctx, next) => {
 // 注册接口
 router.post('/register', userValidator, verifyUser , crpytPassword, register)
 ```
+
+# 验证登录
+在中间件里面添加验证方法，即修改user.middleware.js文件，注意需要暴露：
+```javascript
+const verifyLogin = async (ctx, next) => {
+    const {user_name , password} = ctx.request.body
+    // 判断用户是否存在(不存在就报错)
+    try {
+        const res = await getUserInfo({user_name})
+        if (!res) {
+            console.error('用户名不存在',{user_name})
+            ctx.app.emit('error', userDoesNotExistError, ctx)
+            return
+        }
+        // 密码是否匹配(不匹配就报错)
+        if(!bcrypt.compareSync(password, res.password)) {
+            ctx.app.emit('error', invalidPassword, ctx)
+            return
+        }
+    }catch (err) {
+        console.error('获取用户错误！',err)
+        return ctx.app.emit('error', userLoginError, ctx)
+    }
+    await next()
+}
+```
+添加错误类型,即在err.type.js文件下添加内容：
+```javascript
+    userLoginError: {
+        code: '10005',
+        message: '用户登录失败',
+        result: ''
+    },
+    invalidPassword: {
+        code: '10006',
+        message: '密码错误',
+        result: ''
+    }
+```
+修改user.route.js下的登录接口：
+```javascript
+// 登录接口
+router.post('/login', userValidator, verifyLogin, login)
+```
+
+# 用户的认证
+登录成功后，给用户颁发一个token，用户在以后的每一次请求中携带这个令牌。
+jwt：JSONWEBTOKEN
+- header：头部
+- payload：载荷
+- signature：签名（保证安全性和有效性）
+## 安装jsonwebtoken
+```powershell
+npm install jsonwebtoken
+```
+## 使用
+修改user.controller.js文件：
+```javascript
+const { createUser,getUserInfo } = require("../service/user.service")
+const {userRegisterError} = require("../constant/err.type");
+const jwt = require('jsonwebtoken')
+const {JWT_SECRET} = require('../config/config.default')
+
+class UserController {
+    async login(ctx, next) {
+        // 获取数据
+        const { user_name } = ctx.request.body
+        // 获取用户信息（在payload里面记录id，user_name，is_admin）
+        try {
+            // 根据用户名字获取到用户信息,并去除password字段
+            const {password, ...res} = await getUserInfo({user_name})
+            ctx.body = {
+                code: 0,
+                message: '用户登录成功',
+                result: {
+                    token: jwt.sign(res, JWT_SECRET, {expiresIn: '1d'})
+                }
+            }
+        }catch (err) {
+            console.error('用户登录失败', err)
+        }
+    }
+}
+module.exports = new UserController()
+```
+增加全局私钥（修改.env文件）
+```.env
+JWT_SECRET=youli
+```
+
+# 用户认证
+首先先修改user.route.js文件的内容：
+```javascript
+// 修改密码接口
+router.patch('/', auth, crpytPassword, (ctx, next) => {
+    ctx.body = '修改密码成功'
+})
+```
+接下来开始写user.middleware.js文件的内容:
+```javascript
+const jwt = require('jsonwebtoken')
+const {JWT_SECRET} = require('../config/config.default')
+const {tokenExpiredError, invalidToken} = require("../constant/err.type");
+const auth = async (ctx, next) => {
+    const {authorization} = ctx.request.header
+    const token = authorization.replace('Bearer ', '')
+    try {
+        // user包含payload的信息(id, user_name, is_admin)
+        const user = jwt.verify(token, JWT_SECRET)
+        ctx.state.user = user
+    }catch (err) {
+        switch (err.name) {
+            case 'TokenExpiredError':
+                console.error('token已经过期了！', err)
+                return ctx.app.emit('error', tokenExpiredError, ctx)
+            case 'JsonWebTokenError':
+                console.error('无效的token', err)
+                return ctx.app.emit('error', invalidToken, ctx)
+        }
+    }
+    await next()
+}
+module.exports = {
+    auth
+}
+```
+将错误常量定义一下，即修改err.type.js文件内容:
+```javascript
+    tokenExpiredError: {
+        code: '10101',
+        message: 'token已过期',
+        result: ''
+    },
+    invalidToken: {
+        code: '10102',
+        message: '无效的token',
+        result: ''
+    }
+```
+# 修改密码
+首先，我们在user.route.js中修改修改密码接口：
+```javascript
+// 修改密码接口
+router.patch('/', auth, crpytPassword, changePassword)
+```
+接下来我们在user.controller.js中定义changePassword方法：
+```javascript
+    async changePassword(ctx, next) {
+        // 获取数据
+        const id = ctx.state.user.id
+        const password = ctx.request.body.password
+        // console.log(id, password)
+        // 操作数据库
+        if(await updateUserInfoById({id, password})) {
+            ctx.body = {
+                code: 0,
+                message: '修改密码成功',
+                result: ''
+            }
+        } else {
+            ctx.body = {
+                code: 10007,
+                message: '修改密码失败',
+                result: ''
+            }
+        }
+        // 返回结果
+    }
+```
+涉及到了修改数据库，所以我们修改user.service.js中的内容：
+```javascript
+    async updateUserInfoById({id, user_name, password, is_admin}) {
+        const whereOpt = {id}
+        const newUser = {}
+        user_name && Object.assign(newUser, {user_name})
+        password && Object.assign(newUser, {password})
+        is_admin && Object.assign(newUser, {is_admin})
+        const res = await User.update(newUser, {where: whereOpt})
+        return res[0] > 0
+    }
+```
