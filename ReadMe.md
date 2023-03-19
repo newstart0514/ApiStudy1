@@ -783,3 +783,36 @@ router.patch('/', auth, crpytPassword, changePassword)
         return res[0] > 0
     }
 ```
+
+# 路由自动加载
+首先我们在router文件夹下新建index.js文件，并使用如下内容：
+```javascript
+const fs = require('fs')
+const Router = require('koa-router')
+const router = new Router()
+
+// 使用node内置fs模块同步读取文件
+fs.readdirSync(__dirname).forEach(filename => {
+    if(filename !== 'index.js') {
+        let routeObject = require(`./${filename}`)
+        router.use(routeObject.routes())
+    }
+})
+
+module.exports = router
+```
+接下来，我们在index.js下修改文件内容为：
+```javascript
+const Koa = require('koa')
+const { koaBody } = require('koa-body')
+const errHandler = require('./errHandler')
+const router = require('../router')
+const app = new Koa()
+app.use(koaBody())
+app.use(router.routes())
+// 增加接口的方法请求限制
+app.use(router.allowedMethods()
+// 统一的错误处理
+app.on('error', errHandler)
+module.exports = app
+```
