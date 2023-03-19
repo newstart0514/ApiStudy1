@@ -1,6 +1,7 @@
 // 导入sqluelize的连接
 const seq = require('../db/seq')
 const {DataTypes} = require("sequelize");
+const Goods = require('./goods.model')
 
 // 定义cart模型
 const Cart = seq.define(
@@ -33,6 +34,12 @@ const Cart = seq.define(
 
 // 同步数据（建表）
 // Cart.sync({ force : true})
+
+// 外键在我们当前的表里面,使用belongsTo
+Cart.belongsTo(Goods, {
+    foreignKey: 'goods_id',
+    as: 'goods_info'
+})
 
 // 导出cart模型
 module.exports = Cart
