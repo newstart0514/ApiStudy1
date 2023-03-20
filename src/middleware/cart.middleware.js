@@ -1,16 +1,17 @@
-const {invalidGoodsID} = require('../constant/err.type')
+const {cartFormatError} = require('../constant/err.type')
 
-const validator = async (ctx, next) => {
-    try {
-        ctx.verifyParams({
-            goods_id: 'number'
-        })
-    } catch (err) {
-        console.error(err)
-        invalidGoodsID.result = err
-        return ctx.app.emit('error', invalidGoodsID, ctx)
+// 闭包实现验证方法供多个规则使用
+const validator = (rules) => {
+    return async (ctx, next) => {
+        try {
+            ctx.verifyParams(rules)
+        } catch (err) {
+            console.error(err)
+            cartFormatError.result = err
+            return ctx.app.emit('error', cartFormatError, ctx)
+        }
+        await next()
     }
-    await next()
 }
 
 module.exports = {

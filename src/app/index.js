@@ -1,5 +1,5 @@
 const Koa = require('koa')
-const { koaBody } = require('koa-body')
+const {koaBody} = require('koa-body')
 const path = require('path')
 // 解决无法通过路径请求图片资源的问题
 const KoaStatic = require('koa-static')
@@ -21,7 +21,9 @@ app.use(koaBody({
             uploadDir: path.join(__dirname, '../upload'),
             // 保留文件扩展名
             keepExtensions: true
-        }
+        },
+        // 支持挂载请求参数的请求方法设置
+        parsedMethods: ['POST', 'PUT', 'PATCH', 'DELETE']
     }
 ))
 // 配置静态资源的绝对路径

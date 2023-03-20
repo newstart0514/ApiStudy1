@@ -1,4 +1,5 @@
-const {createOrUpdate, findCarts} = require('../service/cart.service')
+const {createOrUpdate, findCarts, updateCarts, removeCart} = require('../service/cart.service')
+const {cartFormatError} = require("../constant/err.type");
 
 class CartController {
     // 将商品添加到购物车
@@ -27,6 +28,42 @@ class CartController {
             message: '获取购物车列表成功',
             result: res
         }
+    }
+    // 更新购物车
+    async update(ctx) {
+        // 解析参数
+        const {id} = ctx.request.params
+        const {number, selected} = ctx.request.body
+        if(number === undefined && selected === undefined) {
+            cartFormatError.message = 'number和selected不同同时为空'
+            return ctx.app.emit('error', cartFormatError, ctx)
+        }
+        // 操作数据库
+        // 这里使用对象形式包裹参数，是防止undefined的影响，是一种间接型的多态
+        const res = await updateCarts({id, number, selected})
+        // 返回结果
+        ctx.body = {
+            code: 0,
+            message: '更新购物车成功！',
+            result: res
+        }
+    }
+    // 删除购物车
+    async remove(ctx) {
+        // 解析参数
+        const {ids} = ctx.request.body
+        // 操作数据库
+        const res = await removeCart(ids)
+        // 返回结果
+        ctx.body = {
+            code: 0,
+            message: '删除购物车商品成功！',
+            result: res
+        }
+    }
+    // 全选
+    selectAll() {
+
     }
 }
 
