@@ -5,7 +5,7 @@ const Router = require('koa-router')
 const {auth} = require('../middleware/auth.middleware')
 const {validator} = require('../middleware/cart.middleware')
 // 控件器
-const {add, findAll, update, remove, selectAll} = require('../controller/cart.controller')
+const {add, findAll, update, remove, selectAll, unselectAll} = require('../controller/cart.controller')
 
 // 实例化router对象
 const router = new Router({prefix: '/carts'})
@@ -26,6 +26,8 @@ router.patch('/:id', auth, validator({
 router.delete('/', auth, validator({ids: 'array'}), remove)
 // 全选
 router.post('/selectAll', auth, selectAll)
+// 全不选
+router.post('/unselectAll', auth, unselectAll)
 
 // 导出router对象
 module.exports = router

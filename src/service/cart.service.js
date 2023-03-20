@@ -14,7 +14,7 @@ class CartService {
                 }
             }
         })
-        if(res) {
+        if (res) {
             // 已经存在一条记录
             await res.increment('number')
             return await res.reload()
@@ -25,13 +25,14 @@ class CartService {
             })
         }
     }
+
     // 获取购物车列表
     async findCarts(pageNum, pageSize) {
         const offset = (pageNum - 1) * pageSize
         const {count, rows} = await Cart.findAndCountAll({
             offset: offset,
             limit: pageSize * 1,
-            attributes: ['id','number','selected'],
+            attributes: ['id', 'number', 'selected'],
             include: {
                 model: Goods,
                 as: 'goods_info',
@@ -45,6 +46,7 @@ class CartService {
             list: rows
         }
     }
+
     // 更新购物车
     async updateCarts(params) {
         // 解构出三个值
@@ -55,6 +57,7 @@ class CartService {
         selected !== undefined ? (res.selected = selected) : ''
         return await res.save()
     }
+
     // 删除购物车
     async removeCart(ids) {
         return await Cart.destroy({
@@ -64,6 +67,29 @@ class CartService {
                 }
             }
         })
+    }
+
+    // 全选
+    async selectAllCarts(user_id) {
+        return await Cart.update({
+            selected: true,
+        }, {
+            where: {
+                user_id
+            }
+        })
+    }
+
+    // 全不选
+    async unselectAllCarts(user_id) {
+        return await Cart.update({
+                selected: false,
+            }, {
+                where: {
+                    user_id
+                }
+            }
+        )
     }
 }
 
