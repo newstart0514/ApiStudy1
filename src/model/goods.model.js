@@ -1,4 +1,4 @@
-const {DataType, DataTypes} = require('sequelize')
+const {DataTypes} = require('sequelize')
 const seq = require('../db/seq')
 
 const Goods = seq.define('yl_goods', {
